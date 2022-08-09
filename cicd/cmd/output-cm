@@ -1,0 +1,24 @@
+#!/bin/bash
+if [ -d "${BASEDIR}/deploy" ]; then
+  echo "${BASEDIR}/deploy"
+else
+  mkdir "${BASEDIR}/deploy"
+fi
+
+cat ${BASEDIR}/cicd/cicd-common.properties > ${BASEDIR}/deploy/cicd.properties
+echo " " >> ${BASEDIR}/deploy/cicd.properties
+echo "# ${PROFILE} " >> ${BASEDIR}/deploy/cicd.properties
+cat ${BASEDIR}/cicd/cicd-${PROFILE}.properties >> ${BASEDIR}/deploy/cicd.properties
+
+cat ${BASEDIR}/deploy/cicd.properties >> ${BASEDIR}/deploy/tmp-cm.env
+tmp_cm=${BASEDIR}/deploy/tmp-cm.env
+echo "" >> ${tmp_cm}
+cat ${BASEDIR}/cicd/cm-common.env >> ${tmp_cm}
+echo "" >> ${tmp_cm}
+sort -u ${tmp_cm} > ${BASEDIR}/deploy/sorted-cm.properties
+sorted_cm=${BASEDIR}/deploy/sorted-cm.properties
+sed 's/\r$//' ${sorted_cm} > ${BASEDIR}/deploy/output-cm.properties
+output_cm=${BASEDIR}/deploy/output-cm.properties
+
+exit 0
+

@@ -1,0 +1,91 @@
+#VERSION:1.2
+apiVersion: apps/v1
+kind: {{ WORKLOAD_KIND }}
+metadata:
+  name: {{ SERVICE_NAME }}
+  namespace: {{ NAMESPACE }}
+  labels:
+    app: {{ SERVICE_NAME }}
+spec:
+  {{ DEFINE_SERVICE_NAME }}
+  {{ DEFINE_MIN_READY_SECONDS }}
+  selector:
+    matchLabels:
+      app: {{ SERVICE_NAME }}
+  replicas: {{ SERVICE_REPLICAS }}
+  template:
+    metadata:
+      name: {{ SERVICE_NAME }}
+      labels:
+        app: {{ SERVICE_NAME }}
+    spec:
+      serviceAccountName: {{ SERVICEACCOUNT }}
+      containers:
+      - name: {{ SERVICE_NAME }}
+        image: {{ IMAGE_NAME }}
+        imagePullPolicy: {{ IMAGE_PULL_POLICY }}
+        env:
+        - name: SERVER_PORT
+          value: "{{ SERVICE_TARGET_PORT }}" 
+        - name: PROFILE
+          value: {{ PROFILE }}
+        envFrom:
+        - configMapRef:
+            name: "{{ SERVICE_NAME }}-cm"        
+        - secretRef:
+            name: "{{ SERVICE_NAME }}-secret"           
+        ports:
+        - name: containerport
+          containerPort: {{ SERVICE_TARGET_PORT }}
+        resources:
+          requests:
+            cpu: {{ REQ_CPU }}
+            memory: {{ REQ_MEM }}
+          limits:
+            cpu: {{ LIMIT_CPU }}
+            memory: {{ LIMIT_MEM }}
+        {{ DEFINE_READINESS }}
+          {{ DEFINE_READINESS_METHOD }}
+            {{ DEFINE_READINESS_PATH }}
+            {{ DEFINE_READINESS_PORT }}
+          {{ DEFINE_READINESS_DELAY_SECONDS }}
+          {{ DEFINE_READINESS_PERIOD_SECONDS }}
+          {{ DEFINE_READINESS_TIMEOUT_SECONDS }}
+          {{ DEFINE_READINESS_SUCCESS_THRESHOLD }}
+          {{ DEFINE_READINESS_FAILURE_THRESHOLD }
+      imagePullSecrets:
+      - name: {{ IMAGE_PULL_SECRET_NAME }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ SERVICE_NAME }}
+  namespace: {{ NAMESPACE }}  
+spec:
+  type: ClusterIP
+  selector:
+    app: {{ SERVICE_NAME }}
+  ports:
+  - name: port1
+    port: {{ SERVICE_PORT }}
+    targetPort: {{ SERVICE_TARGET_PORT }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: nginx
+  name: {{ SERVICE_NAME }}
+  namespace: {{ NAMESPACE }}  
+spec:
+  rules:
+  - host: {{ SERVICE_HOST }}
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service: 
+            name: {{ SERVICE_NAME }} 
+            port: 
+              number: {{ SERVICE_PORT }}

@@ -1,0 +1,101 @@
+#!/bin/bash
+
+# deploy.yaml을 이용하여 배포 yaml생성
+echo "STEP7. Deploy application "
+
+IMG=${HUB_USER}/${HUB_REPO}:${HUB_TAG}
+echo "HUB_USER:${HUB_USER}"
+echo ${IMG}
+
+# 환경설정값 처리
+eval $(${CTRLDIR}/cmd/set-env ${OUTPUT_CM})
+
+#Mac과 linux 모두에서 동작하기 위해 workaround적용
+deploy_kind=StatefulSet
+docker_registry=index.docker.io
+yaml=${BASEDIR}/deploy/deploy.yaml
+tmp=${BASEDIR}/deploy/tmp.yaml
+cp ${CTRLDIR}/deploy/deploy.yaml ${yaml}
+
+sed "s@{{ WORKLOAD_KIND }}@${deploy_kind}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+if [ "${deploy_kind}" == "StatefulSet" ]; then
+  sed "s@{{ DEFINE_SERVICE_NAME }}@serviceName: ${HUB_REPO}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_MIN_READY_SECONDS }}@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+else
+  sed "s@{{ DEFINE_SERVICE_NAME }}@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  if [ "${min_ready_seconds}" == "" ]; then
+    sed "s@{{ DEFINE_MIN_READY_SECONDS }}@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  else
+    sed "s@{{ DEFINE_MIN_READY_SECONDS }}@minReadySeconds: ${min_ready_seconds}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  fi
+fi 
+sed "s@{{ SERVICE_NAME }}@${HUB_REPO}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ NAMESPACE }}@${namespace}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ SERVICEACCOUNT }}@${serviceaccount}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ IMAGE_NAME }}@${IMG}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ IMAGE_PULL_POLICY }}@${image_pull_policy}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ SERVICE_TARGET_PORT }}@${service_target_port}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ SERVICE_PORT }}@${service_port}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ SERVICE_REPLICAS }}@${service_replicas}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ EUREKA_SERVERS }}@${eureka_servers}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ PROFILE }}@${PROFILE}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ REQ_CPU }}@${req_cpu}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ REQ_MEM }}@${req_mem}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ LIMIT_CPU }}@${limit_cpu}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+sed "s@{{ LIMIT_MEM }}@${limit_mem}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+
+# Set imagePullSecret name
+sed "s@{{ IMAGE_PULL_SECRET_NAME }}@${docker_registry}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+
+# Get readiness values
+if ([ "${readiness_enabled}" == "" ]) || ([ "${readiness_enabled}" == "false" ]); then 
+  sed "s@{{ DEFINE_READINESS }}@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_METHOD }}@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_PATH }}@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_PORT }}@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_DELAY_SECONDS }}@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_PERIOD_SECONDS }}@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_TIMEOUT_SECONDS }}@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_SUCCESS_THRESHOLD }}@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_FAILURE_THRESHOLD }@@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}  
+else
+  sed "s@{{ DEFINE_READINESS }}@readinessProbe:@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_METHOD }}@httpGet:@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_PATH }}@path: ${readiness_path}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_PORT }}@port: ${service_target_port}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  
+  if [ "${readiness_delay_seconds}" == "" ]; then 
+    readiness_delay_seconds=0
+  fi 
+  if [ "${readiness_period_seconds}" == "" ]; then 
+    readiness_period_seconds=10
+  fi 
+  if [ "${readiness_timeout_seconds}" == "" ]; then 
+    readiness_timeout_seconds=1
+  fi
+  if [ "${readiness_success_threshold}" == "" ]; then 
+    readiness_success_threshold=1
+  fi
+  if [ "${readiness_failure_threshold}" == "" ]; then 
+    readiness_failure_threshold=3
+  fi
+  sed "s@{{ DEFINE_READINESS_DELAY_SECONDS }}@initialDelaySeconds: ${readiness_delay_seconds}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_PERIOD_SECONDS }}@periodSeconds: ${readiness_period_seconds}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_TIMEOUT_SECONDS }}@timeoutSeconds: ${readiness_timeout_seconds}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_SUCCESS_THRESHOLD }}@successThreshold: ${readiness_success_threshold}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+  sed "s@{{ DEFINE_READINESS_FAILURE_THRESHOLD }@failureThreshold: ${readiness_failure_threshold}@g" ${yaml} > ${tmp} && mv ${tmp} ${yaml}
+fi
+
+sed "s@{{ SERVICE_HOST }}@${service_host}@g" ${yaml} > ${BASEDIR}/deploy/deploy-converted.yaml
+
+if [ $? -eq 0 ]; then
+    echo "*** RUN -> kubectl apply -f ${BASEDIR}/deploy/deploy-converted.yaml"
+    kubectl apply -f ${BASEDIR}/deploy/deploy-converted.yaml
+else
+    echo "******** FAIL to convert deployment yaml !!! ******** "
+fi
+
+echo ""
+echo "************* END DEPLOY service *****************"
+echo ""
+exit 0
