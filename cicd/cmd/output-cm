@@ -24,7 +24,10 @@ output_cm=${BASEDIR}/deploy/output-cm.properties
 ns=`cat ${output_cm} | grep namespace= | cut -d "=" -f 2`
 cm=${HUB_REPO}-cm
 
-kubectl delete configmap ${cm}
+kubectl get configmap ${cm} -n ${ns} 2> /dev/null
+if [ $? -eq 0 ]; then
+      kubectl delete configmap ${cm} -n ${ns}
+fi
 kubectl create configmap ${cm} --from-env-file=${output_cm} -n ${ns}
 
 exit 0
