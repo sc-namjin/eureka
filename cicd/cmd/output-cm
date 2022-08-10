@@ -1,6 +1,7 @@
 #!/bin/bash
 if [ -d "${BASEDIR}/deploy" ]; then
-  echo "${BASEDIR}/deploy"
+  echo "clean ${BASEDIR}/deploy"
+  rm -f "${BASEDIR}/deploy/*.*"
 else
   mkdir "${BASEDIR}/deploy"
 fi
